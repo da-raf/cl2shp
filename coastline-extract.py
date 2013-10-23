@@ -1,54 +1,9 @@
 from imposm.parser import OSMParser
 import codecs
-from sys import stdout
 
 
-# input_file = 'data/sweden-latest.osm.pbf'
 output_file = 'data/sweden-coastline.osm'
-
 boarders = ((12.0, 55.0), (14.0, 56.0))
-
-def print_args(function):
-    def wrapper(*args, **kwargs):
-        print('')
-        print('DEBUG: %s' % function)
-        print('Arguments: %s %s' % (args, kwargs))
-        print('')
-        return function(*args, **kwargs)
-    return wrapper
-
-def print_result(function):
-    def wrapper(*args, **kwargs):
-        x = function(*args, **kwargs)
-        print('')
-        print('DEBUG: %s' % function)
-        print('Result: %s' % tuple([x]))
-        print('')
-        return x
-    return wrapper
-
-def print_inout(function):
-    def wrapper(*args, **kwargs):
-        x = function(*args, **kwargs)
-        print('')
-        print('DEBUG: %s' % function)
-        print('Arguments: %s %s' % (args, kwargs))
-        print('Result: %s' % tuple([x]))
-        print('')
-        return x
-    return wrapper
-
-def print_inout_if_true(function):
-    def wrapper(*args, **kwargs):
-        x = function(*args, **kwargs)
-        if x:
-            print('')
-            print('DEBUG: %s' % function)
-            print('Arguments: %s %s' % (args, kwargs))
-            print('Result: %s' % tuple([x]))
-            print('')
-        return x
-    return wrapper
 
 
 # multidimensional implementation of line segments
