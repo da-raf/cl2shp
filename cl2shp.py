@@ -1,3 +1,6 @@
+#!/usr/bin/python2
+# -*- coding: utf8 -*-
+
 # Copyright © 2013 Raphael Dümig <duemig@in.tum.de>
 # 
 # This program is free software: you can redistribute it and/or modify
@@ -28,11 +31,11 @@
 # Programm erhalten haben. Wenn nicht, siehe <http://www.gnu.org/licenses/>. 
 
 
+# python2 is needed for the dependency imposm
 from imposm.parser import OSMParser
 import codecs
 
 
-output_file = 'data/sweden-coastline.osm'
 boarders = ((12.0, 55.0), (14.0, 56.0))
 
 
@@ -283,7 +286,7 @@ class OSMWay(object):
 # simple class that handles the parsed OSM data.
 class CoastlineChopper(object):
     
-    def __init__(self, input_file, boarder_rect):
+    def __init__(self, input_file, boarder_rect, threads=1):
         self.input_file = input_file
         self.boarder_rect = boarder_rect
         
@@ -292,6 +295,8 @@ class CoastlineChopper(object):
         self.continent_ids = set()
         self.boarder_nodes = {}
         self.auxiliary_items = 0L
+        
+        self.threads = threads
         
         self.load_data()
         
@@ -303,7 +308,7 @@ class CoastlineChopper(object):
         self.coordinates = {}
         self.coastlines  = {}
         
-        parser = OSMParser( concurrency=4,
+        parser = OSMParser( concurrency=self.threads,
                             coords_callback = self._load_coords_callback,
                             ways_callback   = self._load_coastlines_callback )
         parser.parse(self.input_file)
@@ -669,13 +674,20 @@ class CoastlineChopper(object):
 
 if __name__ == '__main__':
     
-    import sys
+    import argparse
     
-    input_file = sys.argv[1]
+    parser = argparse.ArgumentParser(description='create a landmass shapefile from an OSM data-file')
+    parser.add_argument('input_file', help='OSM-extract (XML/PBF) containing the coastlines')
+    parser.add_argument('output_file', help='the destination for the shapefile')
+    
+    parser.add_argument('--threads', type=int, default=2, help='maximum number of threads to use for loading the data')
+    
+    args = parser.parse_args()
+    
     boarder_rect = Rect( boarders[0], boarders[1] )
     
     # instantiate counter and parser and start parsing
-    cl_util = CoastlineChopper( input_file, boarder_rect )
+    cl_util = CoastlineChopper( args.input_file, boarder_rect, threads=args.threads )
     
     print( '%d coastlines found\n' % cl_util.number_of_coastlines() )
     cl_util.connect_lines()
@@ -689,5 +701,5 @@ if __name__ == '__main__':
     cl_util.close_open_lines()
     
     print( 'writing shapefile \"%s\"' % 'sweden-coastlines.shp' )
-    cl_util.write_shapefile('sweden-coastlines.shp')
+    cl_util.write_shapefile(args.output_file)
     
