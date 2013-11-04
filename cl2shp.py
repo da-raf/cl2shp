@@ -700,6 +700,6 @@ if __name__ == '__main__':
     
     cl_util.close_open_lines()
     
-    print( 'writing shapefile \"%s\"' % 'sweden-coastlines.shp' )
+    print( 'writing shapefile \"%s\"' % args.output_file)
     cl_util.write_shapefile(args.output_file)
     
