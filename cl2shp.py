@@ -1,5 +1,5 @@
 #!/usr/bin/python2
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright © 2013 Raphael Dümig <duemig@in.tum.de>
 # 
@@ -34,9 +34,6 @@
 # python2 is needed for the dependency imposm
 from imposm.parser import OSMParser
 import codecs
-
-
-boarders = ((12.0, 55.0), (14.0, 56.0))
 
 
 # multidimensional implementation of line segments
@@ -128,6 +125,9 @@ class Rect:
     def __init__(self, origin, other):
         self.origin = origin
         self.other = other
+    
+    def __str__(self):
+        return '\t%f\n%f\t%f\n\t%f\n' % (self.other[1], self.origin[0], self.other[0], self.other[1])
     
     def contains(self, coord):
         result = True
@@ -286,7 +286,7 @@ class OSMWay(object):
 # simple class that handles the parsed OSM data.
 class CoastlineChopper(object):
     
-    def __init__(self, input_file, boarder_rect, threads=1):
+    def __init__(self, input_file, boarder_rect, threads=1, save_memory=False):
         self.input_file = input_file
         self.boarder_rect = boarder_rect
         
@@ -298,27 +298,50 @@ class CoastlineChopper(object):
         
         self.threads = threads
         
-        self.load_data()
+        self.load_data(save_memory=save_memory)
         
     
-    def load_data(self):
+    def load_data(self, save_memory=False):
         
-        print('loading data from OSM-file "%s"...' % self.input_file)
+        print('loading data from OSM-file "%s" (%d threads)' % (self.input_file, self.threads))
         
         self.coordinates = {}
         self.coastlines  = {}
         
-        parser = OSMParser( concurrency=self.threads,
-                            coords_callback = self._load_coords_callback,
-                            ways_callback   = self._load_coastlines_callback )
-        parser.parse(self.input_file)
+        if not save_memory:
+            # load all data at once
+            # problem: we have to save a hashtable with ALL coordinates
+            parser = OSMParser( concurrency     = self.threads,
+                                coords_callback = self._load_coords_callback,
+                                ways_callback   = self._load_coastlines_callback )
+            parser.parse(self.input_file)
+            
+        else:
+            # first load the coastlines
+            way_parser = OSMParser( concurrency = self.threads,
+                                    ways_callback = self._load_coastlines_callback )
+            way_parser.parse(self.input_file)
+            
+            # now load only the coordinates used in the coastlines
+            node_ids = self.get_node_ids()
+            
+            print('loading coordinates...')
+            # this saves an amount of memory, but is much slower
+            # as we have to look up each coordinate
+            coord_parser = OSMParser( concurrency = self.threads,
+                                      coords_callback = lambda coords: self._load_coords_callback(coords, filter_set=node_ids) )
+            coord_parser.parse(self.input_file)
         
         return
     
-    def _load_coords_callback(self, coords):
-        # build a hash-table, hashing the osmids on the coordinates
-        for c in coords:
+    def _load_coords_callback(self, coords, filter_set=None):
+        # build a hash-table, hashing the OSM-ids on the coordinates
+        
+        coord_list = coords if filter_set is None else filter(lambda c: c[0] in filter_set, coords)
+        
+        for c in coord_list:
             self.coordinates[ c[0] ] = c
+        
         return
     
     def _load_coastlines_callback(self, ways):
@@ -332,11 +355,13 @@ class CoastlineChopper(object):
     def get_node_ids(self):
         print('collecting node ids...')
         
-        node_ids = []
+        node_ids = set()
         
         for way in self.coastlines.viewvalues():
-            node_ids.extend(way.nodes())
-        return set(node_ids)
+            for node in way.nodes():
+                node_ids.add(node)
+        
+        return node_ids
     
     
     def connect_lines(self):
@@ -444,8 +469,6 @@ class CoastlineChopper(object):
         
         filtered_coords = {}
         chopped_coastlines = {}
-        
-        print('building boundaries')
         
         for osmway in self.coastlines.viewvalues():
             
@@ -680,19 +703,24 @@ if __name__ == '__main__':
     parser.add_argument('input_file', help='OSM-extract (XML/PBF) containing the coastlines')
     parser.add_argument('output_file', help='the destination for the shapefile')
     
-    parser.add_argument('--threads', type=int, default=2, help='maximum number of threads to use for loading the data')
+    parser.add_argument('--bb', nargs=4, type=float, metavar=('NORTH', 'EAST', 'SOUTH', 'WEST'), default=[90.0,180.0,-180.0,-90.0], help='bounding box for the coastline data')
+    parser.add_argument('--threads', type=int, default=1, help='maximum number of threads to use for loading the data')
+    parser.add_argument('--save-memory', action='store_true', help='will filter the coordinates already when loading: takes more time but requires less space')
     
     args = parser.parse_args()
     
-    boarder_rect = Rect( boarders[0], boarders[1] )
+    boarder_rect = Rect( args.bb[3:1:-1], args.bb[1::-1] )
     
     # instantiate counter and parser and start parsing
-    cl_util = CoastlineChopper( args.input_file, boarder_rect, threads=args.threads )
+    cl_util = CoastlineChopper( args.input_file,
+                                boarder_rect,
+                                threads=args.threads,
+                                save_memory=args.save_memory )
     
     print( '%d coastlines found\n' % cl_util.number_of_coastlines() )
     cl_util.connect_lines()
     
-    print( 'filter ways and coordinates in the region...' )
+    print( 'filtering ways and coordinates in the region\n%s' % boarder_rect )
     cl_util.chop_ways()
     
     print( '%d coastlines after merging' % cl_util.number_of_coastlines() )
