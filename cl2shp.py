@@ -31,6 +31,7 @@
 # Programm erhalten haben. Wenn nicht, siehe <http://www.gnu.org/licenses/>. 
 
 
+# python2 is needed for the dependency imposm
 from imposm.parser import OSMParser
 import codecs
 
@@ -285,7 +286,7 @@ class OSMWay(object):
 # simple class that handles the parsed OSM data.
 class CoastlineChopper(object):
     
-    def __init__(self, input_file, boarder_rect):
+    def __init__(self, input_file, boarder_rect, threads=1):
         self.input_file = input_file
         self.boarder_rect = boarder_rect
         
@@ -295,6 +296,8 @@ class CoastlineChopper(object):
         self.boarder_nodes = {}
         self.auxiliary_items = 0L
         
+        self.threads = threads
+        
         self.load_data()
         
     
@@ -302,7 +305,7 @@ class CoastlineChopper(object):
         self.coordinates = {}
         self.coastlines  = {}
         
-        parser = OSMParser( concurrency=4,
+        parser = OSMParser( concurrency=self.threads,
                             coords_callback = self._load_coords_callback,
                             ways_callback   = self._load_coastlines_callback )
         parser.parse(self.input_file)
@@ -658,7 +661,6 @@ class CoastlineChopper(object):
 
 if __name__ == '__main__':
     
-    import sys
     import argparse
     
     parser = argparse.ArgumentParser(description='Creates a landmass shapefile from .osm or .pbf files')
