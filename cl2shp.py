@@ -127,7 +127,7 @@ class Rect:
         self.other = other
     
     def __str__(self):
-        return '\t%f\n%f\t%f\n\t%f\n' % (self.other[1], self.origin[0], self.other[0], self.other[1])
+        return '\t%f\n%f\t%f\n\t%f\n' % (self.other[1], self.origin[0], self.other[0], self.origin[1])
     
     def contains(self, coord):
         result = True
@@ -605,6 +605,7 @@ class CoastlineChopper(object):
         blacklist = set()
         aliases = {}
         first_way = None
+        in_node = None
         inside = None
         corner_nodes = []
         
@@ -614,6 +615,8 @@ class CoastlineChopper(object):
             
             for bn in sorted_boarder_nodes[edge]:
                 if bn[0] == 'out':
+                    # if the coastline of bn has already been replaced by another one, load this
+                    # else simply use the coastline of bn
                     cl = aliases.get(bn[2], bn[2])
                     
                     while corner_nodes:
@@ -633,6 +636,8 @@ class CoastlineChopper(object):
                             
                             if first_way is in_node[2]:
                                 first_way = bn[2]
+                        # remove the 'in_node'
+                        in_node = None
                     else:
                         if first_way is None:
                             first_way = bn[2]
