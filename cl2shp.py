@@ -595,7 +595,7 @@ class CoastlineChopper(object):
             # as long as we are using rectangles this works
             # has to be fixed for polygons
             direction = -1 if edge >= 2 else 1
-            f = lambda bn: direction * self.coordinates[ bn[1] ][(edge + 1) % 2]
+            f = lambda bn: direction * self.coordinates[ bn[1] ][(edge + 1) % 2 + 1]
             
             sorted_boarder_nodes.append( sorted( self.boarder_nodes[edge], key=f ) )
         
@@ -660,6 +660,7 @@ class CoastlineChopper(object):
             del self.coastlines[way_id]
         
         return
+    
     
     def check_coordinates(self):
         for osmway in self.coastlines.viewvalues():
