@@ -597,10 +597,8 @@ class CoastlineChopper(object):
             direction = -1 if edge >= 2 else 1
             f = lambda bn: direction * self.coordinates[ bn[1] ][(edge + 1) % 2 + 1]
             
-            sorted_boarder_nodes.append( sorted( self.boarder_nodes[edge], key=f ) )
-        
-        for edge in sorted_boarder_nodes:
-            print(edge)
+            sorted_edge = sorted( self.boarder_nodes[edge], key=f )
+            sorted_boarder_nodes.append( sorted_edge )
         
         blacklist = set()
         aliases = {}
