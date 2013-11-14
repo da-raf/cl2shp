@@ -491,7 +491,7 @@ class CoastlineChopper(object):
                 try:
                     coord = self.coordinates[ref][1:]
                 except KeyError:
-                    print('\tWARNING: undefined reference %d in way %d' % (ref, osmway.get_id()))
+                    print('\tWARNING: undefined node reference %d in way %d' % (ref, osmway.get_id()))
                     continue
                 
                 coord_inside = self.boarder_rect.contains(coord)
@@ -650,12 +650,14 @@ class CoastlineChopper(object):
                     in_node = bn
                     corner_nodes = []
         
+        # if there is an open way left at the start and the end, connect the pieces
         if first_way is not None:
             while corner_nodes:
                 first_way.append_node( corner_nodes.pop() )
             
             first_way.append_node( first_way.first_node() )
         
+        # tidy up
         for way_id in blacklist:
             del self.coastlines[way_id]
         
