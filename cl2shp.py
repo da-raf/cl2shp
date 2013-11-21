@@ -35,6 +35,18 @@
 from imposm.parser import OSMParser
 import codecs
 
+shellColor = { 'red':    '\033[31m',
+               'green':  '\033[32m',
+               'yellow': '\033[33m',
+               'off':    '\033[0m'
+             }
+
+def styled(text, color=None):
+    if color is not None:
+        text = shellColor[color] + text + shellColor['off']
+    
+    return text
+
 
 # multidimensional implementation of line segments
 class Line:
@@ -227,7 +239,6 @@ class OSMWay(object):
         
         if osm_id is not None:
             self.id = osm_id
-        
     
     def get_id(self):
         return self.id
@@ -299,12 +310,12 @@ class CoastlineChopper(object):
         self.threads = threads
         
         self.load_data(save_memory=save_memory)
-        
+    
     
     def load_data(self, save_memory=False):
         
         print('loading data from OSM-file "%s" (%d threads)' % (self.input_file, self.threads))
-
+        
         self.coordinates = {}
         self.coastlines  = {}
         
@@ -393,6 +404,7 @@ class CoastlineChopper(object):
                 
             except KeyError:
                 # line ends and has no sucessor
+                # => coastline of a continent
                 pass
         
         # clean up
@@ -423,9 +435,13 @@ class CoastlineChopper(object):
                 circles += 1
             else:
                 open_lines += 1
-                open_lines_lengths.append( len(osmway) )
+                
+                if not self.boarder_rect.contains(self.coordinates[osmway.first_node()][1:3]):
+                    print('WARNING: open line %d beginning inside!' % osmway.get_id())
+                if not self.boarder_rect.contains(self.coordinates[osmway.last_node()][1:3]):
+                    print('WARNING: open line %d ending inside!' % osmway.get_id())
         
-        return (circles, open_lines, open_lines_lengths)
+        return (circles, open_lines)
     
     
     def _add_boarder_node(self, direction, coord1, coord2, osmway):
@@ -451,15 +467,15 @@ class CoastlineChopper(object):
                 coord1 if coord1 is not None else coord2
             )
         
-        bn = (direction, bn_id, osmway)
+        bn = (bn_id, edge_id, direction, osmway)
         
-        self.boarder_nodes[edge_id].append( bn )
+        self.boarder_nodes[bn_id] = bn
         
         return (bn_id, coord[0], coord[1])
     
     
     def chop_ways(self):
-        self.boarder_nodes = self.boarder_rect.number_of_edges() * [ [] ]
+        self.boarder_nodes = {}
         
         # rebuild the continent ids
         self.continent_ids = set()
@@ -489,7 +505,7 @@ class CoastlineChopper(object):
                 last_coord = coord
                 
                 try:
-                    coord = self.coordinates[ref][1:]
+                    coord = self.coordinates[ref][1:3]
                 except KeyError:
                     print('\tWARNING: undefined node reference %d in way %d' % (ref, osmway.get_id()))
                     continue
@@ -511,8 +527,12 @@ class CoastlineChopper(object):
                     
                     if last_coord_inside is None:
                         # this is the first coordinate of the current way
-                        # and it is inside
-                        # this makes sense for islands, for others this is bad
+                        # and it is already inside of our boundary rectangle
+                        # 
+                        # this makes sense for islands, as the coastline is continued
+                        # at the other end of the line, but for others this is bad,
+                        # as we have to find some way to connect it to the boundary
+                        # of our boundary rectangle
                         beginning_inside = True
                         first_seg_id = cur_id
                         
@@ -521,8 +541,8 @@ class CoastlineChopper(object):
                             # this line is a circle, and the line will be extended
                             # in the front later
                             continue
-                        
-                        print('WARNING: coastline with id %d is beginning inside!' % osmway.get_id())
+                        else:
+                            print('WARNING: coastline with id %d is beginning inside!' % osmway.get_id())
                 
                 else:
                     # coordinate is outside of the area we want to extract
@@ -547,7 +567,9 @@ class CoastlineChopper(object):
                     chopped_coastlines[cur_id]
                 )
                 filtered_coords[bn[0]] = bn
-            
+                
+            # all nodes of this way have been parsed by now
+            # 
             # finish the line, if the last node is still inside
             if coord_inside:
                 chopped_coastlines[cur_id].append(
@@ -562,8 +584,18 @@ class CoastlineChopper(object):
                     filtered_coords[bn[0]] = bn
                     
                 elif not all_nodes_inside:
-                    # merge the last and the first piece
-                    chopped_coastlines[cur_id].append(chopped_coastlines[first_seg_id])
+                    # circle, but not all nodes inside:
+                    # we once had a circle, but by now it has been separated to pieces
+                    # 
+                    # so we append the first to the last piece
+                    first_cl = chopped_coastlines[first_seg_id]
+                    
+                    chopped_coastlines[cur_id].append(first_cl)
+                    
+                    # find the boarder node of the first segment, and link it to the current/last segment
+                    bn = list(self.boarder_nodes[first_cl.last_node()])
+                    bn[-1] = chopped_coastlines[cur_id]
+                    self.boarder_nodes[first_cl.last_node()] = bn
                     
                     del chopped_coastlines[first_seg_id]
                     
@@ -590,15 +622,27 @@ class CoastlineChopper(object):
     
     def close_open_lines(self):
         
+        # sort the boarder nodes: first by edges, then by coordinates
+        
+        # initialize sorted list
         sorted_boarder_nodes = []
-        for edge in range( self.boarder_rect.number_of_edges() ):
-            # as long as we are using rectangles this works
-            # has to be fixed for polygons
-            direction = -1 if edge >= 2 else 1
-            f = lambda bn: direction * self.coordinates[ bn[1] ][(edge + 1) % 2 + 1]
+        for edge_id in range(self.boarder_rect.number_of_edges() ):
+            sorted_boarder_nodes.append( [] )
+        
+        # sort by edges
+        for bn in self.boarder_nodes.viewvalues():
+            sorted_boarder_nodes[ bn[1] ].append(bn)
+        
+        for edge_id in range( self.boarder_rect.number_of_edges() ):
+            # sorting by coordinates
             
-            sorted_edge = sorted( self.boarder_nodes[edge], key=f )
-            sorted_boarder_nodes.append( sorted_edge )
+            # as long as we are using rectangles this works
+            # but this has to be fixed for polygons
+            direction = -1 if edge_id >= 2 else 1
+            f = lambda bn: direction * self.coordinates[ bn[0] ][(edge_id + 1) % 2 + 1]
+            
+            sorted_boarder_nodes[edge_id] = sorted( sorted_boarder_nodes[edge_id], key=f )
+        
         
         blacklist = set()
         aliases = {}
@@ -612,10 +656,20 @@ class CoastlineChopper(object):
             corner_nodes.append( self._create_node(self.boarder_rect.corner(edge)) )
             
             for bn in sorted_boarder_nodes[edge]:
-                if bn[0] == 'out':
-                    # if the coastline of bn has already been replaced by another one, load this
+                if bn[2] == 'out':
+                    cl = bn[-1]
+                    
+                    # if the coastline of bn has already been replaced by another one, and this again
+                    # by another one and so on, load this instead of the original coastline
                     # else simply use the coastline of bn
-                    cl = aliases.get(bn[2], bn[2])
+                    try:
+                        while True:
+                            cl = aliases[cl]
+                    except KeyError:
+                        pass
+                    
+                    if corner_nodes:
+                        print(styled('inserting %d corner nodes in way %d', color='yellow') % (len(corner_nodes), cl.get_id()))
                     
                     while corner_nodes:
                         # append the corners of the rectangle/polygon that have passed
@@ -623,24 +677,32 @@ class CoastlineChopper(object):
                     
                     if in_node is not None:
                         # connect this coastline with the next one
-                        if in_node[2] is cl:
+                        if in_node[-1] is cl:
                             # reached a circle
                             cl.append_node( cl.first_node() )
+                            
+                            print(styled('line %d finished', color='green') % cl.get_id())
+                            
                         else:
                             # other coastline
-                            cl.append( in_node[2] )
-                            blacklist.add( in_node[2].get_id() )
-                            aliases[in_node[2]] = cl
+                            other_cl = in_node[-1]
+                            cl.append( other_cl )
+                            blacklist.add( other_cl.get_id() )
+                            aliases[other_cl] = cl
                             
-                            if first_way is in_node[2]:
-                                first_way = bn[2]
+                            if first_way is other_cl:
+                                first_way = cl
+                            
+                            print(styled('landmass out of our area: appending %d to line %d', color='yellow') % (other_cl.get_id(), cl.get_id()))
+                        
                         # remove the 'in_node'
                         in_node = None
                     else:
                         if first_way is None:
-                            first_way = bn[2]
+                            first_way = cl
+                            print(styled('starting position in landmass', color='yellow'))
                         else:
-                            print('ERROR: bad coastline (internal id=%d)' % bn[2].get_id())
+                            print(styled('ERROR: bad coastline (internal id=%d)', color='red') % cl.get_id())
                     
                     in_node = None
                     
@@ -687,8 +749,11 @@ class CoastlineChopper(object):
         w.field('type', 'C', '15')
         
         for coastline in self.coastlines.viewvalues():
-            w.record( str(coastline.get_id()), 'coastline' )
-            w.poly( shapeType=5, parts=[coastline.to_shape(self.coordinates)] )
+            try:
+                w.poly( shapeType=5, parts=[coastline.to_shape(self.coordinates)] )
+                w.record( str(coastline.get_id()), 'coastline' )
+            except KeyError:
+                print('ERROR: undefined node in way %d: skipping!' % coastline.get_id())
         
         w.save( output_file )
         
@@ -697,6 +762,7 @@ class CoastlineChopper(object):
 
 if __name__ == '__main__':
     
+    # the command line
     import argparse
     
     parser = argparse.ArgumentParser(description='create a landmass shapefile from an OSM data-file')
@@ -719,15 +785,15 @@ if __name__ == '__main__':
     
     print( 'connecting pieces of coastlines...' )
     cl_util.connect_lines()
-    print( 'islands: %d\tcontinents: %d\tshoreline lengths: %s' % cl_util.line_stats() )
+    print( 'islands: %d\tcontinents: %d' % cl_util.line_stats() )
     
     print( 'filtering ways and coordinates in the region\n%s' % boarder_rect )
     cl_util.chop_ways()
-    print( 'islands: %d\tcontinents: %d\tshoreline lengths: %s' % cl_util.line_stats() )
+    print( 'islands: %d\tcontinents: %d' % cl_util.line_stats() )
     
     print( 'calculating areas...' )
     cl_util.close_open_lines()
-    print( 'islands: %d\tcontinents: %d\tshoreline lengths: %s' % cl_util.line_stats() )
+    print( 'islands: %d\tcontinents: %d' % cl_util.line_stats() )
     
     print( 'writing shapefile \"%s\"' % args.output_file )
     cl_util.write_shapefile(args.output_file)
