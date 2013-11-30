@@ -307,11 +307,10 @@ class OSMWay(object):
         return shape
 
 
-
-# simple class that handles the parsed OSM data.
+# the main class of this script
 class CoastlineChopper(object):
     
-    def __init__(self, input_file, boarder_rect, threads=1, save_memory=False):
+    def __init__(self, input_file, boarder_rect, threads=1, node_filter=True):
         self.input_file = input_file
         self.boarder_rect = boarder_rect
         
@@ -323,17 +322,15 @@ class CoastlineChopper(object):
         
         self.threads = threads
         
-        self.load_data(save_memory=save_memory)
+        self.load_data(node_filter)
     
     
-    def load_data(self, save_memory=False):
-        
-        print('loading data from OSM-file "%s" (%d threads)' % (self.input_file, self.threads))
+    def load_data(self, node_filter=True):
         
         self.coordinates = {}
         self.coastlines  = {}
         
-        if not save_memory:
+        if not node_filter:
             # load all data at once
             # problem: we have to save a hashtable with ALL coordinates
             parser = OSMParser( concurrency     = self.threads,
@@ -780,9 +777,10 @@ if __name__ == '__main__':
     parser.add_argument('input_file', help='OSM-extract (XML/PBF) containing the coastlines')
     parser.add_argument('output_file', help='the destination for the shapefile')
     
-    parser.add_argument('--bb', nargs=4, type=float, metavar=('NORTH', 'EAST', 'SOUTH', 'WEST'), default=[90.0,180.0,-180.0,-90.0], help='bounding box for the coastline data')
-    parser.add_argument('--threads', type=int, default=1, help='maximum number of threads to use for loading the data')
-    parser.add_argument('--save-memory', action='store_true', help='will filter the coordinates already when loading: takes more time but requires less space')
+    parser.add_argument('--bb', nargs=4, type=float, metavar=('NORTH', 'EAST', 'SOUTH', 'WEST'), default=[90.0,180.0,-90.0,-180.0], help='bounding box for the coastline data')
+    parser.add_argument('--threads', type=int, default=2, help='maximum number of threads to use for loading the data (default: 2)')
+    parser.add_argument('--no-node-filter', action='store_true', help='do not filter the nodes to those used by coastlines: All nodes will be loaded. Use this if you have already filtered the input data with for example osmosis. Results in faster parsing of the input data as only one pass through the data is needed.')
+    parser.add_argument('--no-color', action='store_true', help='disable colorized output')
     
     args = parser.parse_args()
     
@@ -797,7 +795,7 @@ if __name__ == '__main__':
     cl_util = CoastlineChopper( args.input_file,
                                 boarder_rect,
                                 threads=args.threads,
-                                save_memory=args.save_memory )
+                                node_filter=not args.no_node_filter )
     
     print( prompt + styled('connecting pieces of coastlines...', bold=True, color='white') )
     cl_util.connect_lines()
