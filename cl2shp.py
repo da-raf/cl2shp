@@ -99,6 +99,7 @@ class Line:
         return tuple(d)
     
 
+# not used so far: intended to replace Rect at some time
 class Polygon:
     def __init__(self, points):
         self.points = points
@@ -625,10 +626,6 @@ class CoastlineChopper(object):
         self.coastlines = chopped_coastlines
         
         return self.boarder_nodes
-    
-    
-    def number_of_coastlines(self):
-        return len(self.coastlines)
     
     
     def close_open_lines(self):
