@@ -160,7 +160,7 @@ class Rect:
         result = True
         
         for d in range( len(self.origin) ):
-            result = result and ( self.origin[d] <= coord[d] <= self.other[d] or self.origin[d] >= coord[d] >= self.other[d])
+            result = result and ( self.origin[d] < coord[d] < self.other[d] or self.origin[d] > coord[d] > self.other[d])
         
         return result
     
@@ -448,9 +448,9 @@ class CoastlineChopper(object):
             else:
                 open_lines += 1
                 
-                if not self.boarder_rect.contains(self.coordinates[osmway.first_node()][1:3]):
+                if self.boarder_rect.contains(self.coordinates[osmway.first_node()][1:3]):
                     print('WARNING: open line %d beginning inside!' % osmway.get_id())
-                if not self.boarder_rect.contains(self.coordinates[osmway.last_node()][1:3]):
+                if self.boarder_rect.contains(self.coordinates[osmway.last_node()][1:3]):
                     print('WARNING: open line %d ending inside!' % osmway.get_id())
         
         return (circles, open_lines)
