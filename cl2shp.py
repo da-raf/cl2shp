@@ -376,7 +376,7 @@ class CoastlineChopper(object):
     
     
     def get_node_ids(self):
-        print('collecting node ids...')
+        print('\tcollecting node ids...')
         
         node_ids = set()
         
@@ -793,7 +793,7 @@ if __name__ == '__main__':
     cl_util.connect_lines()
     print( '\tclosed coastlines: %d\topen coastlines: %d' % cl_util.line_stats() )
     
-    print( prompt + styled('filtering ways and coordinates in the region\n%s', bold=True, color='white') % boarder_rect )
+    print( prompt + styled('filtering ways and coordinates in the specified region', bold=True, color='white') )
     cl_util.chop_ways()
     print( '\tclosed coastlines: %d\topen coastlines: %d' % cl_util.line_stats() )
     
