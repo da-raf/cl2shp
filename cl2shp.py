@@ -748,15 +748,10 @@ class CoastlineChopper(object):
         import shapefile
         
         w = shapefile.Writer(shapefile.POLYGON)
-        w.autoBalance = 1
-        
-        w.field('OSMID')
-        w.field('type', 'C', '15')
         
         for coastline in self.coastlines.viewvalues():
             try:
                 w.poly( shapeType=5, parts=[coastline.to_shape(self.coordinates)] )
-                w.record( str(coastline.get_id()), 'coastline' )
             except KeyError:
                 print('ERROR: undefined node in way %d: skipping!' % coastline.get_id())
         
