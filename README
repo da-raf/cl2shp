@@ -1,0 +1,16 @@
+------------------
+----- cl2shp -----
+------------------
+
+© 2013 Raphael Dümig
+
+distributed under the terms of the GPLv3 (see COPYING)
+
+
+----- REQUIRES -----
+python2        interpreter
+imposm.parser  python module
+pyshp          python module
+
+----- INSTALLATION -----
+copy cl2shp.py to your system path
