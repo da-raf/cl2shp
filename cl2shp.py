@@ -759,7 +759,7 @@ class CoastlineChopper(object):
         
         # generate the projection file
         basename = output_file[:-4] if output_file.endswith('.shp') else output_file
-        with open(basename + '.prj') as prj:
+        with open(basename + '.prj', 'w') as prj:
             prj.write('GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]')
         
         return
