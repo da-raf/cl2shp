@@ -742,16 +742,19 @@ class CoastlineChopper(object):
                     print(styled('ERROR: node %d missing!', color='red') % ref)
     
     
-    def write_shapefile(self, output_file):
+    def write_shapefile(self, output_file, dbf_output=True):
         
         # import shapefile module
         import shapefile
         
         w = shapefile.Writer(shapefile.POLYGON)
+        if dbf_output:
+            w.field('cl2shp_id', fieldType='I')
         
         for coastline in self.coastlines.viewvalues():
             try:
                 w.poly( shapeType=5, parts=[coastline.to_shape(self.coordinates)] )
+                if dbf_output: w.record( coastline.get_id() )
             except KeyError:
                 print('ERROR: undefined node in way %d: skipping!' % coastline.get_id())
         
@@ -778,6 +781,7 @@ if __name__ == '__main__':
     parser.add_argument('--threads', type=int, default=2, help='maximum number of threads to use for loading the data (default: 2)')
     parser.add_argument('--no-node-filter', action='store_true', help='do not filter the nodes to those used by coastlines: All nodes will be loaded. Use this if you have already filtered the input data with for example osmosis. Results in faster parsing of the input data as only one pass through the data is needed.')
     parser.add_argument('--no-color', action='store_true', help='disable colorized output')
+    parser.add_argument('--no-dbf', action='store_true', default=False, help='do not create a dbf file')
     
     args = parser.parse_args()
     
@@ -807,5 +811,5 @@ if __name__ == '__main__':
     print( '\tclosed coastlines: %d\topen coastlines: %d' % cl_util.line_stats() )
     
     print( prompt + styled('writing shapefile \"%s\"', bold=True, color='white') % args.output_file )
-    cl_util.write_shapefile(args.output_file)
+    cl_util.write_shapefile(args.output_file, dbf_output=(not args.no_dbf))
     
