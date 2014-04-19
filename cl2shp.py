@@ -303,6 +303,9 @@ class OSMWay(object):
     
     def to_shape(self, coord_dict):
         shape = [ list(coord_dict[ref][1:3]) for ref in self.refs ]
+        
+        # shapefiles expect clockwise rings, in OSM the landmass is surrounded
+        # by coastlines counterclockwise
         shape.reverse()
         
         return shape
@@ -528,6 +531,7 @@ class CoastlineChopper(object):
                     # add coordinate to our new coordinate list
                     filtered_coords[ref] = (ref, coord[0], coord[1])
                     
+                    # have we already been inside?
                     if last_coord_inside:
                         continue
                     
@@ -558,10 +562,15 @@ class CoastlineChopper(object):
                 
                 else:
                     # coordinate is outside of the area we want to extract
-                    all_nodes_inside = False
                     
+                    # if the last ccordinate has already been outside, then we
+                    # have no interest in this part of the line
+                    # => skip coordinate
                     if not last_coord_inside:
                         continue
+                    
+                    # this only needs to be set, if no coordinate has been outside yet
+                    all_nodes_inside = False
                     
                     # this is a continental line
                     self.continent_ids.add(cur_id)
@@ -572,6 +581,7 @@ class CoastlineChopper(object):
                     )
                 
                 # calculate the boarder node
+                # (interpolation if #last_coord is not None, else next point on boundary)
                 bn = self._add_boarder_node(
                     'in' if coord_inside else 'out',
                     last_coord,
