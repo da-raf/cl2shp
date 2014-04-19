@@ -1,4 +1,10 @@
+# compiled python files
 *.pyc
+# output of the script
 *.shp
 *.shx
 *.dbf
+*.prj
+# input for the script
+*.osm
+*.pbf
