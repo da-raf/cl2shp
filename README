@@ -8,6 +8,7 @@ distributed under the terms of the GPLv3 (see COPYING)
 
 
 ----- REQUIRES -----
+protobuf       google's protocol buffers compiler
 python2        interpreter
 imposm.parser  python module
 pyshp          python module
