@@ -1,7 +1,9 @@
 import cl2shp
 import unittest
 
-test_data_file = 'test_data_file.osm'
+import os.path
+
+test_data_file = os.path.join('test_data', 'test_data_file.osm')
 rectangle = cl2shp.Rect( [-55.0,-35.0], [-53.5,-33.8] )
 num_threads = 4
 
